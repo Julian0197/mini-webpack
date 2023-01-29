@@ -20,7 +20,7 @@ function createAsset(filePath) {
   });
   // console.log(ast);
 
-  const deps = [];
+  const deps = []; // 保存模块依赖的相对路径
   traverse.default(ast, {
     ImportDeclaration({ node }) {
       deps.push(node.source.value);

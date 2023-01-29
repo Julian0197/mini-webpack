@@ -17,27 +17,31 @@
 
   require(0);
 })({
-    
-      "0": [function(require, module, exports) {
-        "use strict";
+  0: [
+    function (require, module, exports) {
+      "use strict";
 
-var _foo = require("./foo.js");
+      var _foo = require("./foo.js");
 
-(0, _foo.foo)();
-console.log("main.js");
-      }, {"./foo.js":1}],
-  
-      "1": [function(require, module, exports) {
-        "use strict";
+      (0, _foo.foo)();
+      console.log("main.js");
+    },
+    { "./foo.js": 1 },
+  ],
 
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.foo = foo;
+  1: [
+    function (require, module, exports) {
+      "use strict";
 
-function foo() {
-  console.log("foo");
-}
-      }, {}],
-  
+      Object.defineProperty(exports, "__esModule", {
+        value: true,
+      });
+      exports.foo = foo;
+
+      function foo() {
+        console.log("foo");
+      }
+    },
+    {},
+  ],
 });
