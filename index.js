@@ -5,6 +5,8 @@ import parser from "@babel/parser";
 import traverse from "@babel/traverse";
 import { transformFromAst } from "babel-core";
 import { jsonLoader } from "./jsonLoader.js";
+import { ChangeOutputPath } from "./ChangeOutputPath.js";
+import { SyncHook} from "tapable";
 
 let ID = 0;
 
@@ -17,7 +19,12 @@ const webpackConfig = {
       },
     ],
   },
+  plugins: [new ChangeOutputPath()]
 };
+
+const hooks = {
+  emitFile: new SyncHook(["context"])
+}
 
 function createAsset(filePath) {
   // 1.以字符形式获取文件内容
@@ -30,7 +37,7 @@ function createAsset(filePath) {
   const loaders = webpackConfig.moudle.rules;
   // 给定上下文对象，用户可以在loader访问暴露的一下方法
   const loaderContext = {
-    addDeps() {
+    addDeps(dep) {
       console.log("addDeps", dep);
     }
   }
@@ -89,6 +96,14 @@ function createGraph() {
   return queue;
 }
 
+function initPlugins() {
+  const plugins = webpackConfig.plugins
+  plugins.forEach((plugin) => {
+    plugin.apply(hooks)
+  })
+}
+initPlugins()
+
 const graph = createGraph();
 
 function build(graph) {
@@ -104,7 +119,15 @@ function build(graph) {
   // console.log(data);
   const code = ejs.render(template, { data });
 
-  fs.writeFileSync("./dist/bundle.js", code);
+  let outputPath = "./dist/bundle.js"
+  // 修改打包路径的插件
+  const context = {
+    changeOutputPath(path) {
+      outputPath = path
+    }
+  }
+  hooks.emitFile.call(context)
+  fs.writeFileSync(outputPath, code);
 }
 
 build(graph);
