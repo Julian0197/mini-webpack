@@ -38,7 +38,7 @@ webpack中的核心概念（在 webpack.config.js 配置文件中进行配置）
 
 ## 实现mini-pack功能
 
-初试化项目后，创建`example`文件。main.js中导入了foo.js中的foo。mini-pack首先要实现的是：将rukou main.js以及其导入的内容一起打包。
+初试化项目后，创建`example`文件。main.js中导入了foo.js中的foo。mini-pack首先要实现的是：将入口 main.js以及其导入的内容一起打包。
 
 ~~~js
 // foo.js
@@ -154,7 +154,7 @@ build(graph);
 + 使用`babel`的`parser`模块将代码转化为`ast`语法树，通过语法树的形式拿到当前文件导入的那个文件`foo.js`
 + 使用`babel`的`traverse`模块遍历ast，遍历到`ImportDeclaration`结构出里面的node，`ImportDeclaration.node.source.value`是当前导入的文件路径`foo.js`，将所有导入的文件存到`deps`中
 + 使用`babel-core`中的`transformFromAst`将当前ast转化为commonjs规范的代码字符串。`ESM => AST => CommonJS`，转化为CommonJS是为了保证代码的通用性，以及函数中不能使用ESM的导入导出。
-+ 最后范湖的对象中有：当前文件相对路径，当前文件CJS规范的代码字符串，deps数组存储依赖。（mapping和id后续会说，id是每个文件独一无二的标识，mapping存储当前代码依赖的 相对路径和id 的映射关系）
++ 最后返回的对象中有：当前文件相对路径，当前文件CJS规范的代码字符串，deps数组存储依赖。（mapping和id后续会说，id是每个文件独一无二的标识，mapping存储当前代码依赖的 相对路径和id 的映射关系）
 
 ~~~js
 function createAsset(filePath) {
@@ -346,7 +346,7 @@ build(graph);
 
 因为源文件使用的ESM规范，打包后的代码要转化为CJS规范。
 
-+ 接受参数以对象的形式，key为唯一id值，value是一个数组，第0个参数为函数代码；第二个参数是一个对象表示他依赖(import)的模块。
++ 接受参数以对象的形式，key为唯一id值，value是一个数组，第一个参数为函数代码；第二个参数是一个对象表示他依赖(import)的模块。
 
 + 传入的函数都用`function (require, module, exports) {}`包裹，重写写了`require,moudle和exports`。
 
@@ -445,6 +445,8 @@ build(graph);
 });
 
 ~~~
+
+## 实现loader
 
 
 

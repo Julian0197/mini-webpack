@@ -17,31 +17,43 @@
 
   require(0);
 })({
-  0: [
-    function (require, module, exports) {
-      "use strict";
+    
+      "0": [function(require, module, exports) {
+        "use strict";
 
-      var _foo = require("./foo.js");
+var _foo = require("./foo.js");
 
-      (0, _foo.foo)();
-      console.log("main.js");
-    },
-    { "./foo.js": 1 },
-  ],
+var _user = require("./user.json");
 
-  1: [
-    function (require, module, exports) {
-      "use strict";
+var _user2 = _interopRequireDefault(_user);
 
-      Object.defineProperty(exports, "__esModule", {
-        value: true,
-      });
-      exports.foo = foo;
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-      function foo() {
-        console.log("foo");
-      }
-    },
-    {},
-  ],
+console.log(_user2.default);
+(0, _foo.foo)();
+console.log("main.js");
+      }, {"./foo.js":1,"./user.json":2}],
+  
+      "1": [function(require, module, exports) {
+        "use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.foo = foo;
+
+function foo() {
+  console.log("foo");
+}
+      }, {}],
+  
+      "2": [function(require, module, exports) {
+        "use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = "{\r\n  \"name\": \"Macro\",\r\n  \"age\": 31\r\n}";
+      }, {}],
+  
 });
