@@ -6,12 +6,15 @@ import traverse from "@babel/traverse";
 import { transformFromAst } from "babel-core";
 import { jsonLoader } from "./jsonLoader.js";
 import { ChangeOutputPath } from "./ChangeOutputPath.js";
-import { SyncHook} from "tapable";
+import { SyncHook } from "tapable";
 
 let ID = 0;
 
 const webpackConfig = {
   moudle: {
+    entry: {
+      main: "./example/main.js",
+    }
     rules: [
       {
         test: /\.json$/,
@@ -19,12 +22,14 @@ const webpackConfig = {
       },
     ],
   },
-  plugins: [new ChangeOutputPath()]
+  plugins: [new ChangeOutputPath()],
 };
 
+const entry = webpackConfig.moudle.entry.main
+
 const hooks = {
-  emitFile: new SyncHook(["context"])
-}
+  emitFile: new SyncHook(["context"]),
+};
 
 function createAsset(filePath) {
   // 1.以字符形式获取文件内容
@@ -39,8 +44,8 @@ function createAsset(filePath) {
   const loaderContext = {
     addDeps(dep) {
       console.log("addDeps", dep);
-    }
-  }
+    },
+  };
 
   loaders.forEach(({ test, use }) => {
     // filePath正则匹配test
@@ -48,8 +53,8 @@ function createAsset(filePath) {
       // 多个loader，要链式传递source，最终转化为js
       if (Array.isArray(use)) {
         use.forEach((fn) => {
-          source = fn.call(loaderContext, source)
-        })
+          source = fn.call(loaderContext, source);
+        });
       }
     }
   });
@@ -82,7 +87,7 @@ function createAsset(filePath) {
 }
 
 function createGraph() {
-  const mainAsset = createAsset("./example/main.js");
+  const mainAsset = createAsset(entry);
 
   const queue = [mainAsset];
   for (const asset of queue) {
@@ -97,12 +102,12 @@ function createGraph() {
 }
 
 function initPlugins() {
-  const plugins = webpackConfig.plugins
+  const plugins = webpackConfig.plugins;
   plugins.forEach((plugin) => {
-    plugin.apply(hooks)
-  })
+    plugin.apply(hooks);
+  });
 }
-initPlugins()
+initPlugins();
 
 const graph = createGraph();
 
@@ -119,14 +124,14 @@ function build(graph) {
   // console.log(data);
   const code = ejs.render(template, { data });
 
-  let outputPath = "./dist/bundle.js"
+  let outputPath = "./dist/bundle.js";
   // 修改打包路径的插件
   const context = {
     changeOutputPath(path) {
-      outputPath = path
-    }
-  }
-  hooks.emitFile.call(context)
+      outputPath = path;
+    },
+  };
+  hooks.emitFile.call(context);
   fs.writeFileSync(outputPath, code);
 }
 

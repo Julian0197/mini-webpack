@@ -448,6 +448,224 @@ build(graph);
 
 ## 实现loader
 
+`loader`是一个函数，执行文件转换操作。在本项目中，webpack能识别js类型文件，转化成ast再最终转化为打包后的文件，对于非js文件，需要先借助loader进行转化为js文件，才可以打包。
+
+先实现以下案例：在main.js中引入json文件
+
+~~~json
+{
+  "name": "Macro",
+  "age": 31
+}
+~~~
+
+~~~js
+// main.js
+
+import { foo } from "./foo.js";
+import user from './user.json'
+
+console.log(user); 
+foo();
+console.log("main.js");
+~~~
+
+插件函数为`jsonLoader`
+
++ 正则表达式`/\.json$/`中，`$`表示结尾符，`\`表示通配符
+
+~~~js
+const webpackConfig = {
+  moudle: {
+    rules: [
+      {
+        test: /\.json$/,
+        use: [jsonLoader],
+      },
+    ],
+  }
+};
+~~~
+
+~~~js
+// jsonLoader.js
+
+export function jsonLoader(source) {
+  this.addDeps("jsonLoader")
+  return `export default ${JSON.stringify(source)}`
+}
+~~~
+
++ 拿到代码字符串后就要通过loader转化源代码
+
+~~~js
+function createAsset(filePath) {
+  // 1.以字符形式获取文件内容
+  let source = fs.readFileSync(filePath, {
+    encoding: "utf-8",
+  });
+  // console.log(source);
+
+  // initLoader
+  const loaders = webpackConfig.moudle.rules;
+  // 给定上下文对象，用户可以在loader访问暴露的一下方法
+  const loaderContext = {
+    addDeps(dep) {
+      console.log("addDeps", dep);
+    }
+  }
+
+  loaders.forEach(({ test, use }) => {
+    // filePath正则匹配test
+    if (test.test(filePath)) {
+      // 多个loader，要链式传递source，最终转化为js
+      if (Array.isArray(use)) {
+        use.forEach((fn) => {
+          source = fn.call(loaderContext, source)
+        })
+      }
+    }
+  });
+~~~
+
+
+
+一个 loader 秉承`单一职责`，完成最小单元的文件转换。一个源文件可能需要经历多步转换才能正常使用，比如 Sass 文件先通过 sass-loader 输出 CSS，之后将内容交给 css-loader 处理，甚至 css-loader 输出的内容还需要交给 style-loader 处理，转换成通过脚本加载的 JavaScript 代码。如下使用方式：
+
+~~~js
+module.exports = {
+  // ...
+  module: {
+    rules: [
+      {
+        test: /\.less$/,
+        use: [
+          {
+            loader: "style-loader", // 通过 JS 字符串，创建 style node
+          },
+          {
+            loader: "css-loader", // 编译 css 使其符合 CommonJS 规范
+          },
+          {
+            loader: "less-loader", // 编译 less 为 css
+          },
+        ],
+      },
+    ],
+  },
+};
+~~~
+
+当我们调用多个 loader 串联去转换一个文件时，每个 loader 会`链式地顺序执行`。webpack 中，在同一文件存在多个匹配 loader 的情况下，遵循以下原则：
+
+- loader 的执行顺序是和配置顺序`相反`的，即配置的最后一个 loader 最先执行，第一个 loader 最后执行。
+- 第一个执行的 loader 接收源文件内容作为参数，其他 loader 接收前一个执行的 loader 的返回值作为参数。最后执行的 loader 会返回最终结果。
+
+常见的loader有：`babel-loader`,`ts-loader`,`less-loader`等
+
+## 编写loader
+
+webpack有`事件流机制`，在webpack构建的声明周期中，会触发许多事件。开发中注册各种插件，可以根据需要监听与自身相关的事件。捕获事件后在合适的时机通过weboack提供的API去改变编译输出的结果。
+
+loader和plugins的区别：
+
++ loader执行文件转化操作，是一个**转换器**
++ plugin是一个**扩展器**，他丰富了webpack，在loader结束后，webpack打包的整个过程中，webpack plugin并不能直接操作文件，而是基于事件机制工作，监听打包过程中的某些事件，修改打包效果。
+
+webpack的plugin是一个具有`apply`方法的对象。apply 方法会被 webpack compiler 调用，并且在整个编译生命周期都可以访问 compiler 对象。
+
+由于插件可以携带参数/选项，你必须在 webpack 配置中，向 plugins 属性传入`一个 new 实例`。
+
+所以我们实现的 plugin 应当是`一个 class 或是 构造函数`。
+
+
+
+`plugin`本质通过`tapable`库实现。
+
+先安装tapable，tapable提供了九种钩子：
+
+~~~js
+const {
+	SyncHook,
+	SyncBailHook,
+	SyncWaterfallHook,
+	SyncLoopHook,
+	AsyncParallelHook,
+	AsyncParallelBailHook,
+	AsyncSeriesHook,
+	AsyncSeriesBailHook,
+	AsyncSeriesWaterfallHook
+ } = require("tapable");
+~~~
+
+### 实现`ChangeOutputPath`插件
+
+功能：**修改打包后文件的路径。**
+
+在webpack配置文件中，加入plugins列表，列表中存储的是实例化的plugin对象。
+
+~~~js
+const webpackConfig = {
+  moudle: {
+    rules: [
+      {
+        test: /\.json$/,
+        use: [jsonLoader],
+      },
+    ],
+  },
+  plugins: [new ChangeOutputPath()],
+};
+~~~
+
+下面是插件的实现：
+
++ 所以插件必须是一个具有apply方法的对象
++ `new SyncHook(["context"])`创建一个新的SyncHook对象，可以通过使用"context"参数在钩子函数之间传递上下文信息。SyncHook是Webpack提供的钩子模型，通过在钩子上注册函数，可以实现在Webpack打包过程中插入自定义逻辑的功能。
+
+~~~js
+export class ChangeOutputPath {
+  apply(hooks) {
+    hooks.emitFile.tap("changeOutputPath", (context) => {
+      console.log("--------changeOutputPath");
+      context.changeOutputPath("./dist/msk.js")
+    })
+  }
+}
+~~~
+
+~~~js
+const hooks = {
+  emitFile: new SyncHook(["context"]),
+};
+~~~
+
+~~~js
+function build(graph) {
+  const template = fs.readFileSync("./bundle.ejs", { encoding: "utf-8" });
+  const data = graph.map((asset) => {
+    const { id, code, mapping } = asset;
+    return {
+      id,
+      code,
+      mapping,
+    };
+  });
+  // console.log(data);
+  const code = ejs.render(template, { data });
+
+  let outputPath = "./dist/bundle.js";
+  // 修改打包路径的插件
+  const context = {
+    changeOutputPath(path) {
+      outputPath = path;
+    },
+  };
+  hooks.emitFile.call(context);
+  fs.writeFileSync(outputPath, code);
+}
+~~~
+
 
 
 
